@@ -1,4 +1,3 @@
-
 window.disableScroll = function () {
 
     const widthScroll = window.innerWidth - document.body.offsetWidth;
