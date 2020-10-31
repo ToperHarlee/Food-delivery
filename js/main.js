@@ -1,5 +1,15 @@
 'use strict';
-import Swiper from 'https://unpkg.com/swiper/swiper-bundle.esm.browser.min.js';
+import Swiper from 'https://unpkg.com/swiper/swiper-bundle.esm.browser.min';
+
+//слайдер
+//при выходе на основной сайт с пагинацией и другими настройками слайдер ломается
+//настройки после перехода не передаются
+const swiper = new Swiper('.swiper-container', {
+    sliderPerView: 1,
+    loop: true,
+    autoplay: true,
+    effect: 'coverflow'
+});
 
 //day-1
 const cartButton = document.querySelector("#cart-button");
@@ -33,11 +43,26 @@ const cardsRestaurants = document.querySelector('.cards-restaurants'),
 
 const modalBody = document.querySelector('.modal-body'),
     modalPriceTag = document.querySelector('.modal-pricetag'),
-    btnClearCart = document.querySelector('.clear-cart');
+    btnClearCart = document.querySelector('.clear-cart'),
+    inputAddress = document.querySelector('.input-address');
 
 let login = localStorage.getItem('foodDelivery');
 
-const cart = [];
+const cart = JSON.parse(localStorage.getItem(`foodDelivery_${login}`)) || [];
+
+function saveCart() {
+    localStorage.setItem(`foodDelivery_${login}`, JSON.stringify(cart));
+}
+
+function downLoadCard() {
+    if (localStorage.setItem(`foodDelivery_${login}`)) {
+        const data = JSON.parse(localStorage.setItem(`foodDelivery_${login}`));
+        cart.push(...data);
+        /*data.forEach(function (item) {
+            cart.push(item);
+        });*/
+    }
+}
 
 const getData = async function (url) {
     const response = await fetch(url);
@@ -77,11 +102,18 @@ function clearForm() {
     loginForm.reset();
 }
 
+function returnMain () {
+    containerPromo.classList.remove('hide');
+    swiper.init();
+    restaurants.classList.remove('hide');
+    menu.classList.add('hide');
+}
+
 function autorized() {
 
     function logOut() {
         login = null;
-
+        cart.length = 0;
         localStorage.removeItem('foodDelivery');
         buttonAuth.style.display = '';
         userName.style.display = '';
@@ -89,6 +121,7 @@ function autorized() {
         cartButton.style.display = '';
         buttonOut.removeEventListener('click', logOut);
         checkAuth();
+        returnMain();
     }
 
     console.log('Авторизован');
@@ -106,12 +139,13 @@ function notAutorized() {
 
     function LogIn(event) {
         event.preventDefault();
+
         if (validName(loginInput.value || passwordInput.value)) {
             console.log('Логин');
             login = loginInput.value;
             localStorage.setItem('foodDelivery', login);
             toggleModalAuth();
-
+            downLoadCard();
             buttonAuth.removeEventListener('click', toggleModalAuth);
             closeAuth.removeEventListener('click', toggleModalAuth);
             loginForm.removeEventListener('submit', LogIn);
@@ -135,24 +169,22 @@ function notAutorized() {
     });
 }
 
-
+let div = document.createElement('div');
+div.classList.add('block-alert');
 //ДЗ.
 let blockBtn = () => {
     loginInput.style.borderColor = 'Red';
     passwordInput.style.borderColor = 'Red';
     buttonLogin.setAttribute("disabled", "true");
-    let div = document.createElement('div');
-    div.classList.add('block-alert');
     div.textContent = 'Заполните все поля';
     loginForm.append(div);
 }
 
-let unBlockBtn = (elem) => {
+let unBlockBtn = () => {
     loginInput.style.borderColor = '';
     passwordInput.style.borderColor = '';
     buttonLogin.removeAttribute("disabled");
-    let divRemove = document.querySelector(elem);
-    divRemove.textContent = '';
+    div.style.display = 'none';
 }
 
 function checkAuth() {
@@ -165,8 +197,8 @@ function checkAuth() {
                 blockBtn();
             }
         });
-        loginInput.addEventListener('input', () => unBlockBtn('.block-alert'));
-        passwordInput.addEventListener('input', () => unBlockBtn('.block-alert'));
+        loginInput.addEventListener('input', () => unBlockBtn());
+        passwordInput.addEventListener('input', () => unBlockBtn());
         buttonAuth.addEventListener('click', clearForm);
         //cards.addEventListener('click', () => {
         //    if (login) {
@@ -246,6 +278,7 @@ function openGoods(event) {
             //console.log(restaurant.dataset.products);
             cardsMenu.textContent = '';
             containerPromo.classList.add('hide');
+            swiper.destroy(false);
             restaurants.classList.add('hide');
             menu.classList.remove('hide');
 
@@ -282,7 +315,7 @@ function addToCart (event) {
         });
 
         if (food){
-            food.count += 1;
+            food.count++;
         } else {
             cart.push({
                 id,
@@ -290,8 +323,8 @@ function addToCart (event) {
                 cost,
                 count: 1
             });
-            localStorage.setItem('cartItems', JSON.stringify(cart));
         }
+        saveCart();
     }
 }
 
@@ -318,6 +351,7 @@ function renderCard () {
     }, 0);
 
     modalPriceTag.textContent = totalPrice + ' ₽';
+    saveCart();
 }
 
 function changeCount (event) {
@@ -341,6 +375,54 @@ function changeCount (event) {
     renderCard();
 }
 
+function search() {
+    //console.log(/^[\w ]$/.test(event.key))
+    const value = event.target.value.trim();
+
+    if (!value && event.charCode === 13) {
+        event.target.style.backgroundColor = 'red';
+        event.target.value = '';
+        setTimeout(function () {
+            event.target.style.backgroundColor = '';
+        }, 1500);
+        return;
+    }
+    //живой поиск
+    if (!/^[А-Яа-яЁё ]$/.test(event.key)) return;
+    if (value.length < 3) return;
+
+    getData('./db/partners.json')
+        .then(function (data) {
+            return data.map(function (partner) {
+                return partner.products;
+            });
+        })
+        .then(function (linkProducts) {
+            cardsMenu.textContent = '';
+            linkProducts.forEach(function (link) {
+                getData(`./db/${link}`)
+                    .then(function (data) {
+
+                        const resultSearch = data.filter(function (item) {
+                            const name = item.name.toLowerCase()
+                            return name.includes(value.toLowerCase());
+                        })
+
+                        containerPromo.classList.add('hide');
+                        swiper.destroy(false);
+                        restaurants.classList.add('hide');
+                        menu.classList.remove('hide');
+
+                        restaurantTitle.textContent = 'Результат поиска';
+                        restaurantCategory.textContent = '';
+                        restaurantPrice.textContent = '';
+                        restaurantRating.textContent = '';
+                        resultSearch.forEach(createCardGoods)
+                    })
+            });
+        })
+}
+
 function init () {
     getData('./db/partners.json')
         .then(function (data) {
@@ -351,14 +433,17 @@ function init () {
     btnClearCart.addEventListener('click', function (){
         cart.length = 0;
         renderCard();
+        toggleModal();
+
     });
 
     modalBody.addEventListener('click', changeCount);
 
     cardsRestaurants.addEventListener('click', openGoods);
 
-    logo.addEventListener('click', function () {
+    logo.addEventListener('click', () => {
         containerPromo.classList.remove('hide');
+        swiper.init();
         restaurants.classList.remove('hide');
         menu.classList.add('hide');
     });
@@ -375,44 +460,10 @@ function init () {
     checkAuth();
 
     inputSearch.addEventListener('keypress', function (event) {
-        if (event.charCode === 13) {
-            const value = event.target.value.trim();
-            if (!value) {
-                event.target.style.backgroundColor = 'red';
-                event.target.value = '';
-                setTimeout(function(){event.target.style.backgroundColor = '';}, 1500);
-                return;
-            }
-            getData('./db/partners.json')
-                .then(function (data) {
-                    return data.map(function(partner) {
-                        return partner.products;
-                    });
-                })
-                .then(function (linkProducts) {
-                    cardsMenu.textContent = '';
-                    linkProducts.forEach(function(link) {
-                        getData(`./db/${link}`)
-                            .then(function(data){
-
-                                const resultSearch = data.filter(function(item){
-                                    const name = item.name.toLowerCase()
-                                    return name.includes(value.toLowerCase());
-                                })
-
-                                containerPromo.classList.add('hide');
-                                restaurants.classList.add('hide');
-                                menu.classList.remove('hide');
-
-                                restaurantTitle.textContent = 'Результат поиска';
-                                restaurantCategory.textContent = '';
-                                restaurantPrice.textContent = '';
-                                restaurantRating.textContent = '';
-                                resultSearch.forEach(createCardGoods)
-                            })
-                    });
-                })
-        }
+        search();
+    });
+    inputAddress.addEventListener('keypress', function (event) {
+        search();
     });
 // createCardRestaurants();
 // createCardRestaurants();
@@ -420,18 +471,21 @@ function init () {
 }
 
 init();
-//слайдер
-new Swiper('.swiper-container', {
-    sliderPerView: 1,
-    loop: true,
-    autoplay: true,
-    grabCursor: true,
-    effect: 'cube',
-    cubeEffect: {
-        shadow: false,
-    },
-    pagination: {
-        el: '.swiper-pagination',
-        clickable: true,
-    },
-});
+
+
+
+
+//пример асинхронной функции
+/*function sleep(ms){
+    return new Promise(function (resolve) {
+        setTimeout(resolve, ms);
+    })
+}
+
+(async function (param) {
+    console.log('Start' + new Date().toLocaleTimeString())
+    await sleep(5000);
+    console.log('End' + new Date().toLocaleTimeString())
+})();*/
+
+

@@ -1,0 +1,14 @@
+{
+  "name": "delivery-food",
+  "version": "1.0.0",
+  "description": "food delivery site functonal.\r Приложение по доставке еды, в рамках онлайн марафона от glo.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "swiper": "^6.3.5"
+  }
+}
